@@ -46,7 +46,14 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_INSTALL_PLUGINS=alexanderzobnin-zabbix-app
-    entrypoint: ["/bin/bash", "-c", "/run.sh & sleep 15 && /etc/grafana/enable_zabbix_plugin.sh && wait"]
+    entrypoint: ["/bin/bash", "-c", "/run.sh & \
+      until curl -s http://localhost:3000/api/health | grep '\"database\": \"ok\"' > /dev/null; do \
+        echo 'Aguardando Grafana iniciar completamente...'; \
+        sleep 5; \
+      done; \
+      echo 'Grafana pronto. Ativando plugin...'; \
+      /etc/grafana/enable_zabbix_plugin.sh; \
+      wait"]
     restart: unless-stopped
 
 volumes:
@@ -57,13 +64,6 @@ volumes:
 ```bash
 #!/bin/bash
 
-# Espera o Grafana estar pronto
-until curl -s http://localhost:3000/api/health > /dev/null; do
-    echo "Aguardando Grafana iniciar..."
-    sleep 5
-done
-
-# Ativa o plugin Zabbix via API
 curl -X POST http://localhost:3000/api/plugins/alexanderzobnin-zabbix-app/settings \
   -H "Content-Type: application/json" \
   -u admin:admin \
